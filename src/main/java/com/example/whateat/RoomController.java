@@ -67,9 +67,13 @@ public class RoomController {
         return roomService.selectFood(roomCode, member, foodType);
     }
 
-    //เอาค่า typefood ที่เลือกไป รวม = array new 1  สุ่มค่า random เลขจาก int ไป * ขนาดขนาดของ array
-    //int randomNum = (int)(Math.random() * 101);
-    //0 - 100
+
+    // ✅ สุ่มอาหาร 1 อย่าง (Owner เท่านั้น)
+    @PostMapping("/randomFood/{roomCode}")
+    public ResponseEntity<String> randomFood(@PathVariable String roomCode, @RequestParam String ownerUser) {
+        return roomService.randomFood(roomCode, ownerUser);
+    }
+
 
 
 }

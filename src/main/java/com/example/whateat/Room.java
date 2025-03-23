@@ -35,7 +35,7 @@ public class Room {
 
     private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     private static final int CODE_LENGTH = 6;
-    private Map<String, Set<String>> memberFoodSelections = new HashMap<>();
+    private Map<String, LinkedList<String>> memberFoodSelections = new HashMap<>();
 
     //memberFoodSelections ใช้ตัวนี้เป็น member < 0 , 1 <<<นับ >
 
@@ -70,19 +70,19 @@ public class Room {
         return code.toString();
     }
 
-    public Map<String, Set<String>> getMemberFoodSelections() {
+    public Map<String, LinkedList<String>> getMemberFoodSelections() {
         if (memberFoodSelections == null) {
             memberFoodSelections = new HashMap<>();
         }
         return memberFoodSelections;
     }
 
-    public void setMemberFoodSelections(Map<String, Set<String>> memberFoodSelections) {
+    public void setMemberFoodSelections(Map<String,  LinkedList<String>> memberFoodSelections) {
         this.memberFoodSelections = memberFoodSelections != null ? memberFoodSelections : new HashMap<>();
     }
 
     public void selectFood(String member, String foodType) {
-        getMemberFoodSelections().putIfAbsent(member, new HashSet<>()); // ✅ ใช้ Getter ป้องกัน Null
+        getMemberFoodSelections().putIfAbsent(member, new  LinkedList<>()); // ✅ ใช้ Getter ป้องกัน Null
         getMemberFoodSelections().get(member).add(foodType);
     }
 
@@ -92,6 +92,6 @@ public class Room {
     }
 
     public boolean canSelectMoreFood(String member) {
-        return getMemberFoodSelections().getOrDefault(member, new HashSet<>()).size() < maxFoodSelectionsPerMember;
+        return getMemberFoodSelections().getOrDefault(member, new  LinkedList<>()).size() < maxFoodSelectionsPerMember;
     }
 }

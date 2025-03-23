@@ -8,8 +8,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.util.ArrayList;
-import java.util.Optional;
+
+import java.util.*;
 
 @Service
 public class RoomService {
@@ -176,21 +176,57 @@ public class RoomService {
             return ResponseEntity.badRequest().body("Invalid food type!");
         }
 
-        // ✅ ตรวจสอบว่าสมาชิกคนนี้เคยเลือกอาหารประเภทนี้ไปแล้วหรือยัง
-        if (room.hasMemberSelectedFood(member, foodType)) {
-            return ResponseEntity.badRequest().body("You have already selected this food type!");
+        // ✅ ดึงรายการอาหารของสมาชิก หรือสร้างใหม่ถ้ายังไม่มี
+        room.getMemberFoodSelections().putIfAbsent(member, new LinkedList<>());
+        LinkedList<String> selectedFoods = (LinkedList<String>) room.getMemberFoodSelections().get(member);
+
+        // ✅ ถ้าเลือกครบจำนวนสูงสุดแล้ว ให้ลบตัวแรกสุด (FIFO)
+        if (selectedFoods.size() >= room.getMaxFoodSelectionsPerMember()) {
+            selectedFoods.removeFirst(); // ลบตัวที่เลือกก่อนหน้าอันแรก
         }
 
-        // ✅ เช็คว่าสมาชิกเลือกอาหารครบจำนวนที่กำหนดหรือยัง
-        if (!room.canSelectMoreFood(member)) {
-            return ResponseEntity.badRequest().body("You have reached the max food selection limit!");
-        }
+        // ✅ เพิ่มอาหารที่เลือกใหม่เข้าไป
+        selectedFoods.add(foodType);
 
-        // ✅ บันทึกการเลือกอาหาร
-        room.selectFood(member, foodType);
         roomRepository.save(room);
+        return ResponseEntity.ok("Member " + member + " selected food types: " + selectedFoods);
+    }
 
-        return ResponseEntity.ok("Member " + member + " selected food type: " + foodType);
+
+    @Transactional
+    public ResponseEntity<String> randomFood(String roomCode, String ownerUser) {
+        Room room = roomRepository.findByRoomCode(roomCode)
+                .orElseThrow(() -> new RuntimeException("Room not found"));
+
+        // ✅ ตรวจสอบว่าเป็นเจ้าของห้องหรือไม่
+        if (!room.getOwnerUser().equals(ownerUser)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Only the owner can randomize food.");
+        }
+
+        // ✅ ตรวจสอบว่าสมาชิกทุกคนเลือกอาหารครบจำนวนที่กำหนดหรือยัง
+        for (String member : room.getMembers()) {
+            if (room.getMemberFoodSelections().getOrDefault(member, new LinkedList<>()).size() < room.getMaxFoodSelectionsPerMember()) {
+                return ResponseEntity.badRequest().body("Not all members have selected their food yet.");
+            }
+        }
+
+        // ✅ รวมรายการอาหารที่สมาชิกทุกคนเลือก
+        Set<String> selectedFoods = new HashSet<>();
+        for (LinkedList<String> selections : room.getMemberFoodSelections().values()) {
+            selectedFoods.addAll(selections); // รวมอาหารจากทุกสมาชิก
+        }
+
+        // ✅ ตรวจสอบว่ามีอาหารที่เลือกหรือไม่
+        if (selectedFoods.isEmpty()) {
+            return ResponseEntity.badRequest().body("No food types selected by members.");
+        }
+
+        // ✅ สุ่มจากอาหารที่สมาชิกเลือก
+        List<String> foodList = new ArrayList<>(selectedFoods);
+        Collections.shuffle(foodList);
+        String randomFood = foodList.get(0);
+
+        return ResponseEntity.ok("Randomized Food: " + randomFood);
     }
 
 
