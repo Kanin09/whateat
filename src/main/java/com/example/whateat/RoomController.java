@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -17,6 +18,13 @@ public class RoomController {
 
     @Autowired
     private RoomService roomService;
+
+    private final GoogleMapsService googleMapsService;
+
+    @Autowired
+    public RoomController(GoogleMapsService googleMapsService) {
+        this.googleMapsService = googleMapsService;
+    }
 
     // ✅ สร้างห้องใหม่ (รหัสจะถูกสุ่มอัตโนมัติ)
     @PostMapping("/create")
@@ -70,9 +78,10 @@ public class RoomController {
 
     // ✅ สุ่มอาหาร 1 อย่าง (Owner เท่านั้น)
     @PostMapping("/randomFood/{roomCode}")
-    public ResponseEntity<String> randomFood(@PathVariable String roomCode, @RequestParam String ownerUser) {
+    public ResponseEntity<Map<String, Object>> randomFood(@PathVariable String roomCode, @RequestParam String ownerUser) {
         return roomService.randomFood(roomCode, ownerUser);
     }
+
 
 
 

@@ -8,7 +8,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
+import java.time.LocalDateTime;
 import java.util.*;
 
 @Service
@@ -17,7 +20,8 @@ public class RoomService {
     @Autowired
     private RoomRepository roomRepository;
 
-
+    @Autowired
+    private GoogleMapsService googleMapsService;
 
 
 
@@ -41,6 +45,10 @@ public class RoomService {
 
 
         room.setFoodTypes(new ArrayList<>(Room.DEFAULT_FOOD_TYPES));
+
+        // ✅ ล็อกพิกัดให้เป็นมหาวิทยาลัยหอการค้าไทย
+        room.setLatitude(13.779322);
+        room.setLongitude(100.560633);
 
         return roomRepository.save(room);
     }
@@ -180,6 +188,11 @@ public class RoomService {
         room.getMemberFoodSelections().putIfAbsent(member, new LinkedList<>());
         LinkedList<String> selectedFoods = (LinkedList<String>) room.getMemberFoodSelections().get(member);
 
+        // ป้องกันการเลือกซ้ำ
+        if (selectedFoods.contains(foodType)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Food type already selected!"));
+        }
+
         // ✅ ถ้าเลือกครบจำนวนสูงสุดแล้ว ให้ลบตัวแรกสุด (FIFO)
         if (selectedFoods.size() >= room.getMaxFoodSelectionsPerMember()) {
             selectedFoods.removeFirst(); // ลบตัวที่เลือกก่อนหน้าอันแรก
@@ -187,47 +200,78 @@ public class RoomService {
 
         // ✅ เพิ่มอาหารที่เลือกใหม่เข้าไป
         selectedFoods.add(foodType);
-
         roomRepository.save(room);
-        return ResponseEntity.ok("Member " + member + " selected food types: " + selectedFoods);
+
+        // ✅ คืนค่าเป็น JSON เพื่อให้ Frontend ใช้งานง่ายขึ้น
+        Map<String, Object> response = new HashMap<>();
+        response.put("member", member);
+        response.put("selectedFoods", selectedFoods);
+
+        return ResponseEntity.ok(response);
     }
 
 
     @Transactional
-    public ResponseEntity<String> randomFood(String roomCode, String ownerUser) {
+    public ResponseEntity<Map<String, Object>> randomFood(String roomCode, String ownerUser) {
         Room room = roomRepository.findByRoomCode(roomCode)
                 .orElseThrow(() -> new RuntimeException("Room not found"));
 
         // ✅ ตรวจสอบว่าเป็นเจ้าของห้องหรือไม่
         if (!room.getOwnerUser().equals(ownerUser)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Only the owner can randomize food.");
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Only the owner can randomize food.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
+        }
+        // ✅ ตรวจสอบว่าสุ่มไปแล้วหรือยัง
+        if (room.getRandomizedAt() != null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Food has already been randomized."));
         }
 
         // ✅ ตรวจสอบว่าสมาชิกทุกคนเลือกอาหารครบจำนวนที่กำหนดหรือยัง
         for (String member : room.getMembers()) {
             if (room.getMemberFoodSelections().getOrDefault(member, new LinkedList<>()).size() < room.getMaxFoodSelectionsPerMember()) {
-                return ResponseEntity.badRequest().body("Not all members have selected their food yet.");
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("error", "Not all members have selected their food yet.");
+                return ResponseEntity.badRequest().body(errorResponse);
             }
         }
 
         // ✅ รวมรายการอาหารที่สมาชิกทุกคนเลือก
         Set<String> selectedFoods = new HashSet<>();
         for (LinkedList<String> selections : room.getMemberFoodSelections().values()) {
-            selectedFoods.addAll(selections); // รวมอาหารจากทุกสมาชิก
+            selectedFoods.addAll(selections);
         }
 
         // ✅ ตรวจสอบว่ามีอาหารที่เลือกหรือไม่
         if (selectedFoods.isEmpty()) {
-            return ResponseEntity.badRequest().body("No food types selected by members.");
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "No food types selected by members.");
+            return ResponseEntity.badRequest().body(errorResponse);
         }
+
 
         // ✅ สุ่มจากอาหารที่สมาชิกเลือก
         List<String> foodList = new ArrayList<>(selectedFoods);
         Collections.shuffle(foodList);
         String randomFood = foodList.get(0);
 
-        return ResponseEntity.ok("Randomized Food: " + randomFood);
-    }
+        // ✅ ดึงร้านอาหารจาก Google Maps API (รัศมี 1 กิโลเมตร)
+        List<Map<String, String>> restaurants = googleMapsService.findNearbyRestaurants(
+                room.getLatitude(),
+                room.getLongitude(),
+                1000,
+                randomFood
+        );
 
+        // ✅ บันทึก Timestamp เวลาที่สุ่มอาหาร
+        room.setRandomizedAt(LocalDateTime.now());
+        roomRepository.save(room);
+
+        return ResponseEntity.ok(Map.of(
+                "randomFood", randomFood,
+                "restaurants", restaurants
+        ));
+
+    }
 
 }

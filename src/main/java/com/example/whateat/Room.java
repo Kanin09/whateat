@@ -7,6 +7,7 @@ import lombok.Data;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import java.security.SecureRandom;
+import java.time.LocalDateTime;
 import java.util.*;
 
 @Document("room")
@@ -29,6 +30,9 @@ public class Room {
 
     private List<String> members;
     private List<String> foodTypes;
+    private double latitude;
+    private double longitude;
+    private LocalDateTime randomizedAt; // เวลาที่สุ่มอาหา
 
 
 
