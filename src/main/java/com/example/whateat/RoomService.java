@@ -26,27 +26,32 @@ public class RoomService {
 
 
     //สร้างห้อง
-    @Transactional //รับจะไม่บันทึกข้อมูลลงในฐานข้อมูลถ้าไม่สมบูรณ์
+    @Transactional
     public Room createRoom(Room room) {
-        if (room.getMaxUsers() <= 0) { // 🆕 ตรวจสอบว่าค่าที่ส่งมาต้องมากกว่า 0
+        if (room.getMaxUsers() <= 0) {
             throw new IllegalArgumentException("Max users must be greater than 0.");
         }
 
+        // 👇 สุ่มรหัสห้อง ถ้ายังไม่มี
         room.setRoomCode(room.getRoomCode() != null ? room.getRoomCode() : room.generateRoomCode());
-        room.setMembers(new ArrayList<>());
 
-        if (room.getOwnerUser() != null && !room.getOwnerUser().isEmpty()) {
-            room.getMembers().add(room.getOwnerUser());  // เพิ่มเจ้าของเข้าไปในสมาชิก
+        // ✅ ตรวจสอบ & เซต members ใหม่ถ้าไม่มี
+        if (room.getMembers() == null) {
+            room.setMembers(new ArrayList<>());
         }
 
+        // ✅ เพิ่มเจ้าของเข้า members ถ้ายังไม่ได้เพิ่ม
+        if (room.getOwnerUser() != null && !room.getOwnerUser().isEmpty() && !room.getMembers().contains(room.getOwnerUser())) {
+            room.getMembers().add(room.getOwnerUser());
+        }
+
+        // ✅ ตรวจค่าการเลือกอาหาร
         if (room.getMaxFoodSelectionsPerMember() <= 0) {
             throw new ValidationException("Max food selections per member must be at least 1.");
         }
 
-
+        // ✅ ตั้งค่า default
         room.setFoodTypes(new ArrayList<>(Room.DEFAULT_FOOD_TYPES));
-
-        // ✅ ล็อกพิกัดให้เป็นมหาวิทยาลัยหอการค้าไทย
         room.setLatitude(13.779322);
         room.setLongitude(100.560633);
 
@@ -184,6 +189,13 @@ public class RoomService {
             return ResponseEntity.badRequest().body("Invalid food type!");
         }
 
+        // ✅✅ เช็คว่ากด "พร้อมแล้ว" หรือยัง
+        if (room.getMemberReadyStatus().getOrDefault(member, false)) {
+            return ResponseEntity.badRequest().body(
+                    Map.of("error", "คุณกดพร้อมแล้ว ไม่สามารถเลือกอาหารเพิ่มได้!")
+            );
+        }
+
         // ✅ ดึงรายการอาหารของสมาชิก หรือสร้างใหม่ถ้ายังไม่มี
         room.getMemberFoodSelections().putIfAbsent(member, new LinkedList<>());
         LinkedList<String> selectedFoods = (LinkedList<String>) room.getMemberFoodSelections().get(member);
@@ -222,10 +234,19 @@ public class RoomService {
             errorResponse.put("error", "Only the owner can randomize food.");
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
         }
+
+
         // ✅ ตรวจสอบว่าสุ่มไปแล้วหรือยัง
         if (room.getRandomizedAt() != null) {
             return ResponseEntity.badRequest().body(Map.of("error", "Food has already been randomized."));
         }
+
+        // ✅ เช็กว่าสมาชิกทุกคนพร้อมหรือยัง
+       /* Map<String, Boolean> readyStatus = room.getMemberReadyStatus();
+        if (readyStatus == null || readyStatus.size() < room.getMembers().size()
+                || readyStatus.values().stream().anyMatch(ready -> !ready)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Not all members are ready."));
+        }*/
 
         // ✅ ตรวจสอบว่าสมาชิกทุกคนเลือกอาหารครบจำนวนที่กำหนดหรือยัง
         for (String member : room.getMembers()) {
@@ -234,6 +255,11 @@ public class RoomService {
                 errorResponse.put("error", "Not all members have selected their food yet.");
                 return ResponseEntity.badRequest().body(errorResponse);
             }
+        }
+
+        // ✅ ตรวจสอบว่าสมาชิกทุกคนกดยืนยันความพร้อมหรือยัง
+        if (!room.isAllMembersReady()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Not all members are ready."));
         }
 
         // ✅ รวมรายการอาหารที่สมาชิกทุกคนเลือก
@@ -272,6 +298,21 @@ public class RoomService {
                 "restaurants", restaurants
         ));
 
+    }
+
+    @Transactional
+    public ResponseEntity<String> setMemberReady(String roomCode, String memberName, boolean ready) {
+        Room room = roomRepository.findByRoomCode(roomCode)
+                .orElseThrow(() -> new RuntimeException("Room not found"));
+
+        if (!room.getMembers().contains(memberName)) {
+            return ResponseEntity.badRequest().body("Member not found in the room!");
+        }
+
+        room.getMemberReadyStatus().put(memberName, ready);
+        roomRepository.save(room);
+
+        return ResponseEntity.ok("Ready status updated successfully.");
     }
 
 }

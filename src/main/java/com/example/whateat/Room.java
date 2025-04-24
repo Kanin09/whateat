@@ -32,20 +32,21 @@ public class Room {
     private List<String> foodTypes;
     private double latitude;
     private double longitude;
-    private LocalDateTime randomizedAt; // เวลาที่สุ่มอาหา
+    private LocalDateTime randomizedAt; // เวลาที่สุ่มอาหาร
+    private Map<String, Boolean> memberReadyStatus;
+    private Map<String, LinkedList<String>> memberFoodSelections = new HashMap<>(); //memberFoodSelections ใช้ตัวนี้เป็น member < 0 , 1 <<<นับ >
 
 
 
 
     private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     private static final int CODE_LENGTH = 6;
-    private Map<String, LinkedList<String>> memberFoodSelections = new HashMap<>();
-
-    //memberFoodSelections ใช้ตัวนี้เป็น member < 0 , 1 <<<นับ >
 
 
     public static final List<String> DEFAULT_FOOD_TYPES = List.of(
-            "thai", "japan", "cafe", "noodles", "bakery","water", "buffet"
+            "ของหวาน", "อาหารตามสั่ง", "อาหารจานเดียว",
+            "ก๋วยเตี๋ยว", "เครื่องดื่ม/น้ำผลไม้", "เบเกอรี/เค้ก",
+            "ชาบู", "อาหารเกาหลี", "ปิ้งย่าง"
     );
 
 
@@ -56,12 +57,29 @@ public class Room {
         this.members = new ArrayList<>();
         this.foodTypes = new ArrayList<>(DEFAULT_FOOD_TYPES);
         this.memberFoodSelections = new HashMap<>();
+        this.memberReadyStatus = new HashMap<>();
     }
 
+
+    // ✅ ใช้ตรวจสอบว่าห้องยังว่างให้คนเข้าร่วมหรือไม่
     public boolean canJoin() {
         return members.size()+1 <= maxUsers;
     }
 
+    public boolean isAllMembersReady() {
+        if (memberReadyStatus == null || memberReadyStatus.size() < members.size()) {
+            return false;
+        }
+        for (String member : members) {
+            if (!Boolean.TRUE.equals(memberReadyStatus.get(member))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+
+    // ✅ สร้างรหัสห้องสุ่ม
     public String generateRoomCode() {
         SecureRandom random = new SecureRandom();
         StringBuilder code = new StringBuilder();
@@ -74,6 +92,15 @@ public class Room {
         return code.toString();
     }
 
+    public Map<String, Boolean> getMemberReadyStatus() {
+        if (memberReadyStatus == null) {
+            memberReadyStatus = new HashMap<>();
+        }
+        return memberReadyStatus;
+    }
+
+
+
     public Map<String, LinkedList<String>> getMemberFoodSelections() {
         if (memberFoodSelections == null) {
             memberFoodSelections = new HashMap<>();
@@ -81,21 +108,7 @@ public class Room {
         return memberFoodSelections;
     }
 
-    public void setMemberFoodSelections(Map<String,  LinkedList<String>> memberFoodSelections) {
-        this.memberFoodSelections = memberFoodSelections != null ? memberFoodSelections : new HashMap<>();
-    }
 
-    public void selectFood(String member, String foodType) {
-        getMemberFoodSelections().putIfAbsent(member, new  LinkedList<>()); // ✅ ใช้ Getter ป้องกัน Null
-        getMemberFoodSelections().get(member).add(foodType);
-    }
 
-    public boolean hasMemberSelectedFood(String member, String foodType) {
-        return getMemberFoodSelections().containsKey(member) &&
-                getMemberFoodSelections().get(member).contains(foodType);
-    }
 
-    public boolean canSelectMoreFood(String member) {
-        return getMemberFoodSelections().getOrDefault(member, new  LinkedList<>()).size() < maxFoodSelectionsPerMember;
-    }
 }

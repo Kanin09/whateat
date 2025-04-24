@@ -18,20 +18,34 @@ public class GoogleMapsService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
+    // ✅ Map สำหรับแปลงชื่อไทย → คำค้น Google
+    private static final Map<String, String> FOOD_TYPE_KEYWORD_MAP = Map.ofEntries(
+            Map.entry("ของหวาน", "dessert"),
+            Map.entry("อาหารตามสั่ง", "thai food"),
+            Map.entry("อาหารจานเดียว", "one dish meal"),
+            Map.entry("ก๋วยเตี๋ยว", "noodles"),
+            Map.entry("เครื่องดื่ม/น้ำผลไม้", "juice drinks"),
+            Map.entry("เบเกอรี/เค้ก", "bakery"),
+            Map.entry("ชาบู", "shabu"),
+            Map.entry("อาหารเกาหลี", "korean food"),
+            Map.entry("ปิ้งย่าง", "grilled meat")
+    );
+
     // 🔍 ค้นหาร้านอาหารใกล้พิกัดที่กำหนด
     public List<Map<String, String>> findNearbyRestaurants(double latitude, double longitude, int radius, String foodType) {
+        // ✅ แปลงประเภทอาหาร ถ้าไม่มีใน Map ให้ใช้ค่าที่รับมา
+        String keyword = FOOD_TYPE_KEYWORD_MAP.getOrDefault(foodType, foodType);
+
         String url = UriComponentsBuilder.fromHttpUrl("https://maps.googleapis.com/maps/api/place/nearbysearch/json")
                 .queryParam("location", latitude + "," + longitude)
                 .queryParam("radius", radius)
                 .queryParam("type", "restaurant")
-                .queryParam("keyword", foodType)
+                .queryParam("keyword", keyword)
                 .queryParam("key", googleApiKey)
                 .toUriString();
 
         // 📌 เรียก API และรับข้อมูล JSON
         Map<String, Object> response = restTemplate.getForObject(url, Map.class);
-
-        // 📌 ดึงเฉพาะข้อมูลที่ต้องการ (ชื่อ, รูป, พิกัด)
         List<Map<String, Object>> results = (List<Map<String, Object>>) response.get("results");
         List<Map<String, String>> restaurantList = new ArrayList<>();
 

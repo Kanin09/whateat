@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-
+@CrossOrigin(origins = "http://localhost:3000")
 @RestController
 @RequestMapping("/rooms")
 public class RoomController {
@@ -19,36 +19,46 @@ public class RoomController {
     @Autowired
     private RoomService roomService;
 
+    @Autowired
+    private  RoomRepository roomRepository;
+
     private final GoogleMapsService googleMapsService;
 
     @Autowired
-    public RoomController(GoogleMapsService googleMapsService) {
+    public RoomController(GoogleMapsService googleMapsService){
+
         this.googleMapsService = googleMapsService;
     }
 
     // ✅ สร้างห้องใหม่ (รหัสจะถูกสุ่มอัตโนมัติ)
     @PostMapping("/create")
-    public Room createRoom(@Valid @RequestBody Room room) {
+    public Room createRoom(@Valid @RequestBody Room room){
+
         return roomService.createRoom(room);
     }
 
+    // ✅ ดึงข้อมูลห้องตาม roomCode
+    @GetMapping("/{roomCode}")
+    public ResponseEntity<Room> getRoomInfo(@PathVariable String roomCode) {
+        Room room = roomRepository.findByRoomCode(roomCode)
+                .orElseThrow(() -> new RuntimeException("Room not found"));
 
-    // ✅ ค้นหาห้องโดยใช้รหัสห้อง
-    @GetMapping("/find/{roomCode}")
-    public Optional<Room> getRoomByCode(@PathVariable String roomCode) {
-        return roomService.getRoomByCode(roomCode);
+        return ResponseEntity.ok(room); // ✅ มี ownerUser อยู่ใน Room อยู่แล้ว ไม่ต้องสร้าง DTO
     }
+
 
     // ✅ หัวหน้าห้องลบห้อง
     @DeleteMapping("/delete/{roomCode}")
-    public ResponseEntity<String> deleteRoom(@PathVariable String roomCode, @RequestParam String ownerUser) {
+    public ResponseEntity<String> deleteRoom(@PathVariable String roomCode,
+                                             @RequestParam String ownerUser) {
         return roomService.deleteRoom(roomCode, ownerUser);
     }
 
 
     // ✅ สมาชิกออกจากห้อง
     @PostMapping("/leave/{roomCode}")
-    public ResponseEntity<String> leaveRoom(@PathVariable String roomCode, @RequestParam String memberName) {
+    public ResponseEntity<String> leaveRoom(@PathVariable String roomCode,
+                                            @RequestParam String memberName) {
         return roomService.leaveRoom(roomCode, memberName);
     }
 
@@ -82,7 +92,13 @@ public class RoomController {
         return roomService.randomFood(roomCode, ownerUser);
     }
 
-
-
+    @PostMapping("/ready/{roomCode}")
+    public ResponseEntity<String> setMemberReady(
+            @PathVariable String roomCode,
+            @RequestParam String memberName,
+            @RequestParam boolean ready
+    ) {
+        return roomService.setMemberReady(roomCode, memberName, ready);
+    }
 
 }
