@@ -200,18 +200,19 @@ public class RoomService {
         room.getMemberFoodSelections().putIfAbsent(member, new LinkedList<>());
         LinkedList<String> selectedFoods = (LinkedList<String>) room.getMemberFoodSelections().get(member);
 
-        // ป้องกันการเลือกซ้ำ
+        // ✅✅ เปลี่ยนจาก FIFO เป็น "ถ้าเลือกซ้ำให้เอาออก"
         if (selectedFoods.contains(foodType)) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Food type already selected!"));
+            selectedFoods.remove(foodType); // ลบตัวที่เลือกซ้ำออก
+        } else {
+            // เช็กว่าถ้าเกินจำนวนสูงสุด ถึงจะไม่เลือกได้
+            if (selectedFoods.size() >= room.getMaxFoodSelectionsPerMember()) {
+                return ResponseEntity.badRequest().body(
+                        Map.of("error", "คุณเลือกครบจำนวนสูงสุดแล้ว กรุณายกเลิกอันเก่าก่อนเลือกใหม่!")
+                );
+            }
+            selectedFoods.add(foodType); // เพิ่มตัวใหม่เข้าไป
         }
 
-        // ✅ ถ้าเลือกครบจำนวนสูงสุดแล้ว ให้ลบตัวแรกสุด (FIFO)
-        if (selectedFoods.size() >= room.getMaxFoodSelectionsPerMember()) {
-            selectedFoods.removeFirst(); // ลบตัวที่เลือกก่อนหน้าอันแรก
-        }
-
-        // ✅ เพิ่มอาหารที่เลือกใหม่เข้าไป
-        selectedFoods.add(foodType);
         roomRepository.save(room);
 
         // ✅ คืนค่าเป็น JSON เพื่อให้ Frontend ใช้งานง่ายขึ้น
@@ -220,6 +221,31 @@ public class RoomService {
         response.put("selectedFoods", selectedFoods);
 
         return ResponseEntity.ok(response);
+    }
+
+    @Transactional
+    public ResponseEntity<String> setMemberReady(String roomCode, String memberName, boolean ready) {
+        Room room = roomRepository.findByRoomCode(roomCode)
+                .orElseThrow(() -> new RuntimeException("Room not found"));
+
+        if (!room.getMembers().contains(memberName)) {
+            return ResponseEntity.badRequest().body("Member not found in the room!");
+        }
+
+        room.getMemberReadyStatus().put(memberName, ready);
+
+        if (ready) {
+            // ✅✅ ถ้า ready = true ค่อย save ข้อมูล
+            roomRepository.save(room);
+        } else {
+            // ✅✅ ถ้า ready = false ต้องลบข้อมูลการเลือกอาหารของ member นี้ออกด้วย
+            if (room.getMemberFoodSelections() != null) {
+                room.getMemberFoodSelections().remove(memberName);
+            }
+            roomRepository.save(room);
+        }
+
+        return ResponseEntity.ok("Ready status updated successfully.");
     }
 
 
@@ -300,19 +326,6 @@ public class RoomService {
 
     }
 
-    @Transactional
-    public ResponseEntity<String> setMemberReady(String roomCode, String memberName, boolean ready) {
-        Room room = roomRepository.findByRoomCode(roomCode)
-                .orElseThrow(() -> new RuntimeException("Room not found"));
 
-        if (!room.getMembers().contains(memberName)) {
-            return ResponseEntity.badRequest().body("Member not found in the room!");
-        }
-
-        room.getMemberReadyStatus().put(memberName, ready);
-        roomRepository.save(room);
-
-        return ResponseEntity.ok("Ready status updated successfully.");
-    }
 
 }
