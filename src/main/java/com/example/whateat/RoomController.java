@@ -7,10 +7,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
+
 @CrossOrigin(origins = "http://localhost:3000")
 @RestController
 @RequestMapping("/rooms")
@@ -99,6 +97,18 @@ public class RoomController {
             @RequestParam boolean ready
     ) {
         return roomService.setMemberReady(roomCode, memberName, ready);
+    }
+
+    @GetMapping("/typesNearby")
+    public ResponseEntity<?> getNearbyTypes(@RequestParam double latitude,
+                                            @RequestParam double longitude,
+                                            @RequestParam(defaultValue = "1000") int radius) {
+        try {
+            Set<String> types = googleMapsService.getAllTypesNearby(latitude, longitude, radius);
+            return ResponseEntity.ok(types);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
 }
