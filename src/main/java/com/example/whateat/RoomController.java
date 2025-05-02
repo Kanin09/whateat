@@ -99,16 +99,5 @@ public class RoomController {
         return roomService.setMemberReady(roomCode, memberName, ready);
     }
 
-    @GetMapping("/typesNearby")
-    public ResponseEntity<?> getNearbyTypes(@RequestParam double latitude,
-                                            @RequestParam double longitude,
-                                            @RequestParam(defaultValue = "1000") int radius) {
-        try {
-            Set<String> types = googleMapsService.getAllTypesNearby(latitude, longitude, radius);
-            return ResponseEntity.ok(types);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
 
 }

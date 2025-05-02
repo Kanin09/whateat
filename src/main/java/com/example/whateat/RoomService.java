@@ -261,18 +261,10 @@ public class RoomService {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
         }
 
-
         // ✅ ตรวจสอบว่าสุ่มไปแล้วหรือยัง
         if (room.getRandomizedAt() != null) {
             return ResponseEntity.badRequest().body(Map.of("error", "Food has already been randomized."));
         }
-
-        // ✅ เช็กว่าสมาชิกทุกคนพร้อมหรือยัง
-       /* Map<String, Boolean> readyStatus = room.getMemberReadyStatus();
-        if (readyStatus == null || readyStatus.size() < room.getMembers().size()
-                || readyStatus.values().stream().anyMatch(ready -> !ready)) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Not all members are ready."));
-        }*/
 
         // ✅ ตรวจสอบว่าสมาชิกทุกคนเลือกอาหารครบจำนวนที่กำหนดหรือยัง
         for (String member : room.getMembers()) {
@@ -288,27 +280,35 @@ public class RoomService {
             return ResponseEntity.badRequest().body(Map.of("error", "Not all members are ready."));
         }
 
-        // ✅ รวมรายการอาหารที่สมาชิกทุกคนเลือก
-        Set<String> selectedFoods = new HashSet<>();
+        // ✅ รวมรายการอาหารที่สมาชิกเลือก พร้อมนับจำนวน (ใช้เป็น weight)
+        Map<String, Integer> foodFrequencyMap = new HashMap<>();
         for (LinkedList<String> selections : room.getMemberFoodSelections().values()) {
-            selectedFoods.addAll(selections);
+            for (String food : selections) {
+                foodFrequencyMap.put(food, foodFrequencyMap.getOrDefault(food, 0) + 1);
+            }
         }
 
         // ✅ ตรวจสอบว่ามีอาหารที่เลือกหรือไม่
-        if (selectedFoods.isEmpty()) {
+        if (foodFrequencyMap.isEmpty()) {
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("error", "No food types selected by members.");
             return ResponseEntity.badRequest().body(errorResponse);
         }
 
+        // ✅ ทำ weighted random โดยสร้าง list ที่เพิ่มตาม weight
+        List<String> weightedFoodList = new ArrayList<>();
+        for (Map.Entry<String, Integer> entry : foodFrequencyMap.entrySet()) {
+            for (int i = 0; i < entry.getValue(); i++) {
+                weightedFoodList.add(entry.getKey());
+            }
+        }
 
-        // ✅ สุ่มจากอาหารที่สมาชิกเลือก
-        List<String> foodList = new ArrayList<>(selectedFoods);
-        Collections.shuffle(foodList);
-        String randomFood = foodList.get(0);
+        // ✅ สุ่มจาก weighted list
+        Collections.shuffle(weightedFoodList);
+        String randomFood = weightedFoodList.get(0);
 
         // ✅ ดึงร้านอาหารจาก Google Maps API (รัศมี 1 กิโลเมตร)
-        List<Map<String, String>> restaurants = googleMapsService.findNearbyRestaurants(
+        List<RestaurantInfo> restaurants = googleMapsService.findNearbyRestaurants(
                 room.getLatitude(),
                 room.getLongitude(),
                 1000,
@@ -323,9 +323,7 @@ public class RoomService {
                 "randomFood", randomFood,
                 "restaurants", restaurants
         ));
-
     }
-
 
 
 }

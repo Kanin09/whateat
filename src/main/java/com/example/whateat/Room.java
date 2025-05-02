@@ -6,10 +6,14 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.web.bind.annotation.CrossOrigin;
+
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.*;
 
+
+@CrossOrigin(origins = "http://localhost:3000")
 @Document("room")
 @Data
 public class Room {
@@ -46,7 +50,8 @@ public class Room {
     public static final List<String> DEFAULT_FOOD_TYPES = List.of(
             "ของหวาน", "อาหารตามสั่ง", "อาหารจานเดียว",
             "ก๋วยเตี๋ยว", "เครื่องดื่ม/น้ำผลไม้", "เบเกอรี/เค้ก",
-            "ชาบู", "อาหารเกาหลี", "ปิ้งย่าง"
+            "ชาบู", "อาหารเกาหลี", "ปิ้งย่าง",
+            "คาเฟ่", "บุฟเฟ่ต์"
     );
 
 
