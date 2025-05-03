@@ -68,7 +68,7 @@ public class Room {
 
     // ✅ ใช้ตรวจสอบว่าห้องยังว่างให้คนเข้าร่วมหรือไม่
     public boolean canJoin() {
-        return members.size()+1 <= maxUsers;
+        return members.size() < maxUsers;
     }
 
     public boolean isAllMembersReady() {

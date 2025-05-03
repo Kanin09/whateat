@@ -232,13 +232,26 @@ public class RoomService {
             return ResponseEntity.badRequest().body("Member not found in the room!");
         }
 
-        room.getMemberReadyStatus().put(memberName, ready);
-
         if (ready) {
-            // ✅✅ ถ้า ready = true ค่อย save ข้อมูล
+            // ✅ ต้องเช็กว่าเลือกอาหารครบตามจำนวนที่กำหนดก่อน
+            List<String> selectedFoods = room.getMemberFoodSelections().get(memberName);
+
+            if (selectedFoods == null || selectedFoods.isEmpty()) {
+                return ResponseEntity.badRequest().body("กรุณาเลือกอาหารอย่างน้อย 1 ประเภทก่อนกดพร้อม!");
+            }
+
+            int requiredSelections = room.getMaxFoodSelectionsPerMember();
+            if (selectedFoods.size() < requiredSelections) {
+                return ResponseEntity.badRequest().body("กรุณาเลือกอาหารให้ครบ " + requiredSelections + " ประเภทก่อนกดพร้อม!");
+            }
+
+            // ✅ ถ้าเลือกครบแล้วค่อย set ready = true
+            room.getMemberReadyStatus().put(memberName, true);
             roomRepository.save(room);
         } else {
-            // ✅✅ ถ้า ready = false ต้องลบข้อมูลการเลือกอาหารของ member นี้ออกด้วย
+            // ❌ ถ้าไม่พร้อม ให้ลบรายการอาหาร และ set ready = false
+            room.getMemberReadyStatus().put(memberName, false);
+
             if (room.getMemberFoodSelections() != null) {
                 room.getMemberFoodSelections().remove(memberName);
             }
@@ -247,7 +260,6 @@ public class RoomService {
 
         return ResponseEntity.ok("Ready status updated successfully.");
     }
-
 
     @Transactional
     public ResponseEntity<Map<String, Object>> randomFood(String roomCode, String ownerUser) {
