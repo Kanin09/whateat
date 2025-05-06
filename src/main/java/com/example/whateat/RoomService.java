@@ -257,7 +257,7 @@ public class RoomService {
             return ResponseEntity.badRequest().body(Map.of("error", "Not all members are ready."));
         }
 
-        // ✅ ส่ง event แจ้งว่าเริ่มสุ่มแล้ว
+        // ✅ ส่ง event แจ้งว่าเริ่มสุ่ม
         messagingTemplate.convertAndSend(
                 "/topic/room/" + roomCode + "/random-started",
                 "start"

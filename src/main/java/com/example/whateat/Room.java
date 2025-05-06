@@ -25,7 +25,6 @@ public class Room {
     @NotNull(message = "Owner user is required")
     private String ownerUser;
 
-
     @Min(value = 1, message = "Max users must be at least 1")
     private int maxUsers;
 
