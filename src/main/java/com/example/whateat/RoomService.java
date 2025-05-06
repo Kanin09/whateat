@@ -257,6 +257,12 @@ public class RoomService {
             return ResponseEntity.badRequest().body(Map.of("error", "Not all members are ready."));
         }
 
+        // ✅ ส่ง event แจ้งว่าเริ่มสุ่มแล้ว
+        messagingTemplate.convertAndSend(
+                "/topic/room/" + roomCode + "/random-started",
+                "start"
+        );
+
         Map<String, Integer> foodFrequencyMap = new HashMap<>();
         for (LinkedList<String> selections : room.getMemberFoodSelections().values()) {
             for (String food : selections) {
@@ -285,6 +291,14 @@ public class RoomService {
 
         room.setRandomizedAt(LocalDateTime.now());
         roomRepository.save(room);
+
+        messagingTemplate.convertAndSend(
+                "/topic/room/" + roomCode + "/random-result",
+                Map.of(
+                        "food", randomFood,
+                        "restaurants", restaurants
+                )
+        );
 
         return ResponseEntity.ok(Map.of(
                 "randomFood", randomFood,
