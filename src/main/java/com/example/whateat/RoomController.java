@@ -28,7 +28,7 @@ public class RoomController {
         this.googleMapsService = googleMapsService;
     }
 
-    // ✅ สร้างห้องใหม่ (รหัสจะถูกสุ่มอัตโนมัติ)
+    // ✅ สร้างห้องใหม่ รหัสจะถูกสุ่มอัตโนมัติ
     @PostMapping("/create")
     public Room createRoom(@Valid @RequestBody Room room){
 
